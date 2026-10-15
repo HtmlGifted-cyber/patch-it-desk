@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IT Desk</title>
+<style>
+:root{
+  --bg:#f5ecdb; --card:#fffaf1; --ink:#36261a; --muted:#7d6a55; --line:#e6d8bd;
+  --amber:#c8902e; --gold:#e8b04a; --green:#2f5d3a; --leaf:#4f8a45; --red:#b0462f; --soft:#f1e5cc;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "DejaVu Sans",system-ui,sans-serif}
+a{color:var(--green);text-decoration:none}
+a:hover{text-decoration:underline}
+header{background:linear-gradient(135deg,#2f5d3a 0%,#456f3c 50%,#93703d 100%);color:#fff8ea;padding:22px 22px 18px}
+.back{display:inline-block;font-size:14px;color:#ffd77a;margin-bottom:8px;font-weight:600}
+.hello{font-size:26px;font-weight:bold;margin:0}
+.summary{font-size:16px;margin:6px 0 0;opacity:.95}
+main{max-width:1100px;margin:20px auto;padding:0 18px;display:flex;flex-direction:column;gap:18px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 14px;font-size:14px;cursor:pointer;color:var(--ink);font-weight:600}
+.chip.active{background:var(--green);color:#fff8ea;border-color:var(--green)}
+.card{background:var(--card);border-radius:18px;padding:20px;box-shadow:0 2px 10px rgba(80,55,20,.08);display:flex;flex-direction:column;gap:12px}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.ticket-id{font-weight:bold;font-size:15px;background:var(--soft);padding:3px 10px;border-radius:10px}
+.pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:13px;font-weight:bold}
+.on{background:#dcebd5;color:var(--green)}
+.offp{background:#eee3cf;color:var(--muted)}
+.alert{background:#f6d9cf;color:var(--red)}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:14px;color:var(--muted);background:var(--soft);padding:10px 14px;border-radius:12px}
+.problem-box{font-size:15px;margin:4px 0}
+.error-box{background:#2a2218;color:#f8f0e0;padding:12px;border-radius:10px;font-family:monospace;font-size:13px;white-space:pre-wrap;overflow-x:auto;max-height:180px}
+.actions-area{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.form-row{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-group label{font-size:13px;font-weight:bold;color:var(--muted)}
+textarea{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;resize:vertical;min-height:60px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-size:14px;border:0;border-radius:12px;padding:8px 16px;cursor:pointer;background:var(--green);color:#fff8ea;font-weight:600}
+button.secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+button.stop{background:var(--red)}
+button:disabled{opacity:.5;cursor:wait}
+.msg{font-size:13px;font-weight:bold;color:var(--green)}
+.msg.error{color:var(--red)}
+.dimmed{opacity:.65}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff8ea;padding:10px 18px;border-radius:14px;display:none;max-width:90%;z-index:1000}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">&larr; Ecosystem Dashboard</a>
+  <h1 class="hello">IT Desk</h1>
+  <p class="summary" id="headerSummary">Loading tickets...</p>
+</header>
+
+<main>
+  <div class="filters" id="filters">
+    <button class="chip active" data-filter="all-open">All open</button>
+    <button class="chip" data-filter="New">New</button>
+    <button class="chip" data-filter="Diagnosing">Diagnosing</button>
+    <button class="chip" data-filter="Assigned to Worker">Assigned to Worker</button>
+    <button class="chip" data-filter="Waiting on Owner">Waiting on Owner</button>
+    <button class="chip" data-filter="done">Done (24 h)</button>
+  </div>
+
+  <div id="lastAction" class="card" style="display:none;margin-bottom:16px;border-left:6px solid var(--gold, #c9a227)"></div>
+  <section class="card" id="noticeCard" style="margin-bottom:16px">
+    <h3 style="margin-top:0">✅ Report completed work</h3>
+    <p class="hint">For fixes done outside a ticket. Adds a notice row to the board.</p>
+    <label for="nTitle">What was finished</label>
+    <input id="nTitle" maxlength="200" style="width:100%" placeholder="e.g. Backups cron job updated">
+    <label for="nArea">System / script (optional)</label>
+    <input id="nArea" maxlength="100" style="width:100%" placeholder="e.g. Backup Script">
+    <label for="nDetails">Details (optional)</label>
+    <textarea id="nDetails" maxlength="1500" style="width:100%"></textarea>
+    <label for="nConfirm">Who should confirm it works (optional)</label>
+    <input id="nConfirm" maxlength="100" style="width:100%" placeholder="e.g. Owner">
+    <div class="btn-row"><button onclick="postNotice()">Post notice</button><span class="msg" id="nMsg"></span></div>
+  </section>
+  <div id="ticketList"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const CTL = "http://127.0.0.1:8795";
+const toast = msg => { const t = $("toast"); t.textContent = msg; t.style.display = "block"; setTimeout(() => t.style.display = "none", 5000); };
+const ago = t => { if(!t) return "a while ago"; const m = Math.round((Date.now()/1000 - t)/60);
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m/60) + " h ago" : Math.round(m/1440) + " days ago"; };
+
+let deskData = null;
+let currentFilter = "all-open";
+
+document.querySelectorAll(".chip").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter = btn.dataset.filter;
+    renderTickets();
+  };
+});
+
+async function loadDesk(){
+  try {
+    const r = await fetch(CTL + "/patch-desk");
+    deskData = await r.json();
+    if(!deskData.ok){
+      $("headerSummary").textContent = "The control helper reported an error: " + (deskData.message || "");
+      $("ticketList").innerHTML = "<p class='card'>Could not load tickets.</p>";
+      return;
+    }
+    renderTickets();
+  } catch(e){
+    $("headerSummary").textContent = "The control helper isn't answering (eco-control service). Make sure it's running.";
+    $("ticketList").innerHTML = "<div class='card'><h3>Helper offline</h3><p class='hint'>Cannot reach http://127.0.0.1:8795/patch-desk</p></div>";
+  }
+}
+
+function repliesHtml(id){
+  const R = ((deskData && deskData.replies) || []).filter(r => r.ticket === id);
+  if(!R.length) return "";
+  const done = R.some(r => r.done);
+  return `<div class="hint" style="margin:10px 0;padding:10px;border-radius:10px;background:${done ? "#e3f1e0" : "#f6efe0"}">
+    <b>${done ? "✅ Board activity indicates completion — verify, then Mark fixed." : "💬 Board activity about this ticket"}</b>
+    ${R.slice(0,5).map(r => `<div style="margin-top:6px"><b>${esc(r.from)}</b> · ${esc(r.tab)} · ${esc(String(r.date).replace("T"," ").slice(0,16))}<br>${esc(r.text.slice(0,300))}</div>`).join("")}
+  </div>`;
+}
+
+const URG_RANK = {Down: 0, High: 1, Normal: 2, Medium: 2, Low: 3};
+
+function renderTickets(){
+  if(!deskData || !deskData.ok) return;
+  const checkedAgo = ago(deskData.checked);
+  const tickets = deskData.tickets || [];
+
+  const openCount = tickets.filter(t => !t.recent_done && t.Status !== "Fixed" && t.Status !== "Closed").length;
+  const waitingCount = tickets.filter(t => !t.recent_done && t.Status === "Waiting on Owner").length;
+  const recentDoneCount = tickets.filter(t => t.recent_done).length;
+
+  $("headerSummary").textContent = `Checked ${checkedAgo} · ${openCount} open · ${waitingCount} waiting on owner · ${recentDoneCount} done in last 24h`;
+
+  let filtered = tickets.filter(t => {
+    const isDone = t.recent_done || t.Status === "Fixed" || t.Status === "Closed";
+    if(currentFilter === "all-open") return !isDone;
+    if(currentFilter === "done") return isDone;
+    return !isDone && t.Status === currentFilter;
+  });
+
+  filtered.sort((a, b) => {
+    const ua = URG_RANK[a.Urgency] ?? 2;
+    const ub = URG_RANK[b.Urgency] ?? 2;
+    if(ua !== ub) return ua - ub;
+    return String(b.Filed || "").localeCompare(String(a.Filed || ""));
+  });
+
+  if(!filtered.length){
+    $("ticketList").innerHTML = "<div class='card'><p>No tickets match this filter.</p></div>";
+    return;
+  }
+
+  const URG_CLASS = {Down: "alert", High: "alert", Normal: "offp", Low: "offp", Medium: "offp"};
+
+  $("ticketList").innerHTML = filtered.map(t => {
+    const isDone = t.recent_done || t.Status === "Fixed" || t.Status === "Closed";
+    const urgency = t.Urgency || "Normal";
+    const status = t.Status || "New";
+    const needsHandsOn = t["Needs Owner Hands-On"] === "Yes";
+    const exactError = t["Exact Error"] || "";
+    const diag = t["IT Diagnosis"] || "";
+    const fix = t["Fix / Next Step"] || "";
+    const updated = t.Closed || t.Updated || t.Filed || "";
+
+    let hoursLeft = 0;
+    if(isDone && updated){
+      const parsed = Date.parse(updated);
+      if(!isNaN(parsed)){
+        hoursLeft = Math.max(0, Math.round(24 - (Date.now() - parsed)/3600000));
+      } else {
+        hoursLeft = 24;
+      }
+    }
+
+    return `<div class="card ${isDone ? "dimmed" : ""}" id="card-${esc(t["Ticket ID"])}">
+      <div class="card-header">
+        <div class="pills">
+          <span class="ticket-id">${esc(t["Ticket ID"])}</span>
+          <span class="pill ${URG_CLASS[urgency] || "offp"}">${esc(urgency)}</span>
+          <span class="pill on">${esc(status)}</span>
+          ${needsHandsOn ? '<span class="pill alert">Needs Hands-On</span>' : ''}
+          ${isDone ? `<span class="pill offp">Disappears in ${hoursLeft} h</span>` : ''}
+        </div>
+        <div class="hint" style="margin:0">Updated: ${esc(updated)}</div>
+      </div>
+
+      <div class="meta-grid">
+        <div><b>Filed By:</b> ${esc(t["Filed By"])}</div>
+        <div><b>Department:</b> ${esc(t["Department"])}</div>
+        <div><b>System / Script:</b> ${esc(t["System / Script"])}</div>
+        <div><b>Filed:</b> ${esc(t["Filed"])}</div>
+      </div>
+
+      <div>
+        <div class="hint" style="margin-bottom:2px">Problem</div>
+        <div class="problem-box"><b>${esc(t["Problem"])}</b></div>
+        ${repliesHtml(t["Ticket ID"])}
+      </div>
+
+      ${exactError ? `<div>
+        <details>
+          <summary style="font-size:13px">Exact error output</summary>
+          <div class="error-box">${esc(exactError)}</div>
+        </details>
+      </div>` : ''}
+
+      <div class="actions-area">
+        ${!isDone ? `
+          <div class="form-row">
+            <div class="field-group">
+              <label for="diag-${esc(t["Ticket ID"])}">IT Diagnosis</label>
+              <textarea id="diag-${esc(t["Ticket ID"])}">${esc(diag)}</textarea>
+            </div>
+            <div class="field-group">
+              <label for="fix-${esc(t["Ticket ID"])}">Fix / Next Step</label>
+              <textarea id="fix-${esc(t["Ticket ID"])}">${esc(fix)}</textarea>
+            </div>
+          </div>
+          <div class="btn-row" id="btns-${esc(t["Ticket ID"])}">
+            <button onclick="updateTicket('${esc(t["Ticket ID"])}', 'Diagnosing')">Start working</button>
+            <button class="secondary" onclick="confirmAndClose('${esc(t["Ticket ID"])}', 'Assigned to Worker')">Assign to Worker</button>
+            <button class="secondary" onclick="updateTicket('${esc(t["Ticket ID"])}', 'Waiting on Owner')">Waiting on Owner</button>
+            <button onclick="confirmAndClose('${esc(t["Ticket ID"])}', 'Fixed')">Mark fixed</button>
+            <button class="stop" onclick="confirmAndClose('${esc(t["Ticket ID"])}', 'Closed')">Close</button>
+            <span class="msg" id="msg-${esc(t["Ticket ID"])}"></span>
+          </div>
+        ` : `
+          <div class="btn-row" id="btns-${esc(t["Ticket ID"])}">
+            <button class="secondary" onclick="updateTicket('${esc(t["Ticket ID"])}', 'New', true)">Reopen</button>
+            <span class="msg" id="msg-${esc(t["Ticket ID"])}"></span>
+          </div>
+        `}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function showLast(text, bad){
+  const b = $("lastAction"); if(!b) return;
+  b.style.display = "block"; b.style.borderLeftColor = bad ? "#b3412e" : "#2f6b3a";
+  b.textContent = new Date().toLocaleTimeString() + " — " + text;
+}
+
+async function updateTicket(id, newStatus, isReopen = false){
+  const diagEl = $(`diag-${id}`);
+  const fixEl = $(`fix-${id}`);
+  const msgEl = $(`msg-${id}`);
+  const btnRow = $(`btns-${id}`);
+
+  const payload = {
+    id: id,
+    status: newStatus
+  };
+  if(diagEl) payload.diagnosis = diagEl.value;
+  if(fixEl) payload.fix = fixEl.value;
+
+  if(btnRow){
+    btnRow.querySelectorAll("button").forEach(b => b.disabled = true);
+  }
+  if(msgEl){
+    msgEl.textContent = "Saving...";
+    msgEl.className = "msg";
+  }
+
+  try {
+    const res = await fetch(CTL + "/desk/update", {
+      method: "POST",
+      headers: {
+        "X-Eco-Control": "1",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(res.ok && data.ok){
+      if(msgEl) msgEl.textContent = data.message || "Saved!";
+      toast(`Ticket ${id} updated to ${newStatus}`);
+      showLast(`${id} → ${newStatus}: ${data.message || "Saved"}`, /failed/i.test(data.message || ""));
+      setTimeout(loadDesk, 6000);
+    } else {
+      if(msgEl){
+        msgEl.textContent = data.message || "Failed";
+        msgEl.className = "msg error";
+      }
+      if(btnRow){
+        btnRow.querySelectorAll("button").forEach(b => b.disabled = false);
+      }
+    }
+  } catch(e){
+    if(msgEl){
+      msgEl.textContent = "Network error";
+      msgEl.className = "msg error";
+    }
+    if(btnRow){
+      btnRow.querySelectorAll("button").forEach(b => b.disabled = false);
+    }
+  }
+}
+
+const armed = {};
+function confirmAndClose(id, status){
+  const key = id + "|" + status;
+  const msgEl = $(`msg-${id}`);
+  if(armed[key] && Date.now() - armed[key] < 8000){ delete armed[key]; updateTicket(id, status); return; }
+  armed[key] = Date.now();
+  const label = status === "Assigned to Worker" ? "assign it to worker" : "mark it " + status;
+  if(msgEl){ msgEl.className = "msg"; msgEl.textContent = `Click the same button again within 8 seconds to ${label}.`; }
+  showLast(`${id}: click again to ${label}.`, false);
+}
+
+async function postNotice(){
+  const body = {title: $("nTitle").value.trim(), area: $("nArea").value.trim(), details: $("nDetails").value.trim(), needsConfirm: $("nConfirm").value.trim()};
+  if(!body.title){ $("nMsg").textContent = "Write what was finished first."; return; }
+  if(!(armed.notice && Date.now() - armed.notice < 8000)){ armed.notice = Date.now(); $("nMsg").textContent = "Click Post again within 8 seconds to confirm."; return; }
+  delete armed.notice;
+  $("nMsg").textContent = "Posting...";
+  try {
+    const r = await fetch(CTL + "/desk/notice", {method:"POST", headers:{"X-Eco-Control":"1","Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const d = await r.json();
+    $("nMsg").textContent = d.ok ? (d.message || "Posted") : ("Not posted: " + (d.message || d.error || "error"));
+    showLast("Work notice: " + $("nMsg").textContent, !d.ok);
+    if(d.ok){ ["nTitle","nArea","nDetails","nConfirm"].forEach(i => $(i).value = ""); }
+  } catch(e){ $("nMsg").textContent = "The control helper isn't answering."; }
+}
+
+loadDesk();
+setInterval(loadDesk, 60000);
+</script>
+</body>
+</html>
